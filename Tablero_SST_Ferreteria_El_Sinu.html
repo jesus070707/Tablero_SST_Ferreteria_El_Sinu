@@ -1,0 +1,113 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tablero SG-SST · Ferretería El Sinú</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--n:#14213D;--a:#FCA311;--bg:#F4F6FA;--r:#E63946;--g:#1E8E3E;--y:#F77F00}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:#222}
+header{background:var(--n);color:#fff;padding:18px 24px;border-bottom:5px solid var(--a);display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between}
+h1{margin:0;font-size:22px}header small{color:#C7CDD8;display:block;margin-top:4px}
+.bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+select,input,button{font:inherit;padding:8px 10px;border:1px solid #cfd5df;border-radius:8px}
+#per{background:var(--a);border:2px solid #fff;font-weight:700;font-size:16px;color:#0000c8}
+button,.btn{background:var(--a);color:var(--n);border:0;font-weight:700;cursor:pointer;border-radius:8px;padding:9px 14px}
+.btn input{display:none}.btn{display:inline-block}button.s{background:#e9ecef;padding:4px 8px}
+main{max-width:1200px;margin:auto;padding:18px}
+#alert{padding:12px 16px;border-radius:10px;font-weight:700;color:#fff;margin-bottom:16px}
+.ok{background:var(--g)}.bad{background:#D62839}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:8px}
+.k{border-radius:14px;color:#fff;padding:14px;text-align:center;box-shadow:0 3px 8px #0002}
+.k b{display:block;font-size:38px;margin:4px 0}.k span{font-size:11px;font-weight:700;letter-spacing:.5px}.k i{font-size:11px;opacity:.9}
+h2{color:#fff;margin:22px 0 12px;padding:9px 14px;border-radius:8px;font-size:15px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.c{background:#fff;border-radius:14px;padding:14px;box-shadow:0 2px 6px #0001}
+.c h3{margin:0 0 6px;font-size:14px;color:var(--n)}.c canvas{max-height:200px}
+.v{font-size:28px;font-weight:700;color:var(--n)}.p{display:inline-block;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;margin-left:8px}
+.p.ok{background:#D4EDDA;color:#1B5E20}.p.bad{background:#FFD6D6;color:#9B1C1C}.p.warn{background:#FFF3CD;color:#8A5A00}.p.no{background:#E9ECEF;color:#555}
+.c p{font-size:12px;color:#555;margin:6px 0 0}
+form,.row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}label{font-size:12px;font-weight:700;color:var(--n);display:flex;flex-direction:column;gap:3px}
+.need{border:2px solid var(--r);background:#FFD6D6}#msg{font-size:13px;font-weight:700;margin:10px 0}
+table{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px}th{background:var(--n);color:#fff;padding:8px;text-align:left}td{padding:7px 8px;border-bottom:1px solid #e5e8ee}
+tr.f td{background:#FFD6D6;color:#9B1C1C;font-weight:700}.pill{padding:2px 8px;border-radius:12px;color:#fff;font-size:11px;font-weight:700}
+.params{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+footer{text-align:center;font-size:11px;color:#777;padding:18px}
+</style></head><body>
+<header><div><h1>TABLERO SG-SST · Ferretería El Sinú S.A.S.</h1><small>Resolución 0312 de 2019 (art. 30) · Decreto 1072 de 2015</small></div>
+<div class="bar"><b>Período ▶</b><select id="per"></select>
+<label class="btn">📥 Cargar Excel<input type="file" id="xl" accept=".xlsx,.xls"></label><button class="s" id="rs">Restablecer caso</button></div></header>
+<main>
+<div id="alert"></div>
+<div class="kpis" id="kpis"></div>
+<h2 style="background:var(--r)">INDICADORES DE RESULTADO · ¿Qué tan bien protegimos a los trabajadores?</h2><div class="grid" id="g1"></div>
+<h2 style="background:#1F6FEB">INDICADORES DE PROCESO · ¿Estamos cumpliendo lo planeado?</h2><div class="grid" id="g2"></div>
+<h2 style="background:#6A4C93">TENDENCIA DEL AÑO</h2><div class="grid"><div class="c"><h3>ACM mensual (%)</h3><canvas id="t1"></canvas></div><div class="c"><h3>Días de incapacidad: laboral vs común</h3><canvas id="t2"></canvas></div></div>
+<h2 style="background:var(--n)">REGISTRAR NOVEDAD (alerta automática de días)</h2>
+<div class="c"><form id="f"><label>Fecha<input type="date" id="fd" required></label><label>Trabajador<select id="fw"></select></label>
+<label>Tipo de novedad<select id="ft"><option>Accidente de trabajo</option><option>Incapacidad común</option><option>Permiso personal / calamidad</option></select></label>
+<label>Días ausentes<input type="number" id="fdias" min="0" max="366" style="width:110px"></label><button>➕ Registrar</button></form><div id="msg"></div>
+<table id="tn"></table></div>
+<h2 style="background:var(--y)">DATOS DEL PERÍODO (se digitan cada mes)</h2><div class="c"><div class="params" id="pp"></div></div>
+<h2 style="background:#2A9D8F">TRABAJADORES</h2><div class="c"><form id="fx"><label>Nombre<input id="wn" required></label><label>Cargo<input id="wc" required></label><label>Área<input id="wa" required></label><button>➕ Agregar</button></form><table id="tw"></table></div>
+</main><footer>Los datos se guardan en este navegador. Use “Cargar Excel” con el libro Tablero_SST_Ferreteria_El_Sinu.xlsx para traer trabajadores, novedades y datos por período.</footer>
+<script>
+const $=s=>document.querySelector(s),K='sst_el_sinu',TP={'Accidente de trabajo':'Laboral','Incapacidad común':'Común','Permiso personal / calamidad':'Personal'};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const dflt=()=>({per:'2026-08',w:[['Don Tomás','Gerente','Administrativa'],['María','Cajera','Administrativa'],['Diana','Asesora de ventas en mostrador','Ventas'],['Andrés','Asesor de ventas en mostrador','Ventas'],['Julio','Conductor de camión de reparto','Distribución'],['José','Auxiliar de bodega y cargue','Bodega'],['Pedro','Auxiliar de bodega y cargue','Bodega'],['Luis','Auxiliar de bodega y cargue','Bodega'],['Ramón','Auxiliar de bodega y cargue','Bodega']].map(a=>({n:a[0],c:a[1],a:a[2],act:1})),
+n:[{f:'2026-08-12',w:'José',t:'Accidente de trabajo',d:6},{f:'2026-08-15',w:'María',t:'Permiso personal / calamidad',d:1},{f:'2026-08-20',w:'Diana',t:'Incapacidad común',d:3}],
+p:{'2026-08':{dh:24,dc:0,ap:12,ae:9,cp:4,ce:3,as:9}}});
+let S;try{S=JSON.parse(localStorage.getItem(K))}catch(e){}if(!S||!S.w)S=dflt();
+const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}};
+const PER=[];[2026,2027].forEach(y=>{for(let m=1;m<=12;m++)PER.push(y+'-'+String(m).padStart(2,'0'))});
+$('#per').innerHTML=PER.map(p=>`<option>${p}</option>`).join('');
+const sum=a=>a.reduce((s,x)=>s+(+x.d||0),0);
+function calc(per){const N=S.w.filter(x=>x.act).length,P=S.p[per]||{},g=k=>+P[k]||0,r=S.n.filter(x=>x.f.slice(0,7)===per);
+const at=r.filter(x=>x.t==='Accidente de trabajo'),dl=sum(at),dm=sum(r.filter(x=>x.t==='Incapacidad común')),pe=sum(r.filter(x=>x.t.startsWith('Permiso')));
+const pc=(a,b)=>b?a/b*100:0;
+return{N,at:at.length,dl,dm,pe,dh:g('dh'),
+R:[{id:'FA',nm:'FA · Frecuencia de accidentalidad',num:at.length,den:N,v:pc(at.length,N),meta:0,c:'#FF3B30',tx:v=>`Por cada 100 trabajadores se presentaron ${v.toFixed(2)} accidentes de trabajo en el mes (${at.length} AT en ${N} trabajadores).`},
+{id:'SA',nm:'SA · Severidad de accidentalidad',num:dl+g('dc'),den:N,v:pc(dl+g('dc'),N),meta:0,c:'#FF9F1C',tx:v=>`Por cada 100 trabajadores se perdieron ${v.toFixed(2)} días por incapacidad laboral y días cargados (${dl+g('dc')} días).`},
+{id:'ACM',nm:'ACM · Ausentismo por causa médica (%)',num:dl+dm,den:g('dh')*N,v:pc(dl+dm,g('dh')*N),meta:3,c:'#7B2FF7',u:'%',tx:v=>`El ${v.toFixed(2)}% del tiempo programado se perdió por ausencia médica laboral + común (${dl+dm} de ${g('dh')*N} días).`}],
+Pr:[{id:'PL',nm:'Ejecución del plan de trabajo anual',num:g('ae'),den:g('ap'),v:pc(g('ae'),g('ap')),c:'#00B894',tx:v=>`Se ejecutó el ${v.toFixed(1)}% del plan (${g('ae')} de ${g('ap')} actividades).`},
+{id:'CA',nm:'Cumplimiento del programa de capacitación',num:g('ce'),den:g('cp'),v:pc(g('ce'),g('cp')),c:'#0984E3',tx:v=>`Se cumplió el ${v.toFixed(1)}% del programa (${g('ce')} de ${g('cp')} capacitaciones).`},
+{id:'CO',nm:'Cobertura última capacitación (Ergonomía)',num:g('as'),den:N,v:pc(g('as'),N),c:'#FDCB6E',tx:v=>`Asistió el ${v.toFixed(1)}% del personal (${g('as')} de ${N} trabajadores).`}]}}
+function st(i,res){if(!i.den)return['Sin datos','no'];if(res)return i.v<=i.meta?['EN META','ok']:['FUERA DE META','bad'];return i.v>=90?['CUMPLE','ok']:i.v>=70?['ACEPTABLE','warn']:['CRÍTICO','bad']}
+const CH={};
+function chart(id,type,data,opt){if(CH[id]){CH[id].data=data;CH[id].update();return}CH[id]=new Chart($('#'+id),{type,data,options:opt})}
+const O={plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}};
+function card(i,res,p){const[s,k]=st(i,res);return`<div class="c"><h3>${i.nm}</h3><canvas id="c${i.id}"></canvas><div style="margin-top:8px"><span class="v">${i.v.toFixed(2)}${i.u||(res?'':'%')}</span><span class="p ${k}">${s}</span></div><p>${i.den?i.tx(i.v):'Sin datos en el período.'}</p></div>`}
+function render(){const per=S.per,c=calc(per);$('#per').value=per;
+const bad=S.n.filter(x=>TP[x.t]!=='Personal'&&!(+x.d>0)).length;
+$('#alert').className=bad?'bad':'ok';$('#alert').textContent=bad?`⚠ HAY ${bad} NOVEDAD(ES) LABORAL/COMÚN SIN DÍAS. Complételas en la tabla de novedades.`:'✔ Todas las novedades registradas están completas';
+const K=[['TRABAJADORES ACTIVOS',c.N,'Nómina del período','#1F6FEB'],['ACCIDENTES DE TRABAJO',c.at,'AT reportados en el mes','#E63946'],['DÍAS INCAPACIDAD POR AT',c.dl,'Origen laboral (ARL)','#F77F00'],['DÍAS INCAPACIDAD COMÚN',c.dm,'Certificada por médico EPS','#2A9D8F'],['DÍAS DE PERMISOS',c.pe,'No cuentan en ausentismo SST','#6C757D'],['DÍAS HÁBILES',c.dh,'Base del denominador ACM','#6A4C93']];
+$('#kpis').innerHTML=K.map(k=>`<div class="k" style="background:${k[3]}"><span>${k[0]}</span><b>${k[1]}</b><i>${k[2]}</i></div>`).join('');
+$('#g1').innerHTML=c.R.map(i=>card(i,1)).join('');$('#g2').innerHTML=c.Pr.map(i=>card(i,0)).join('');
+Object.keys(CH).forEach(k=>{if(/^c/.test(k)){CH[k].destroy();delete CH[k]}});
+c.R.forEach(i=>chart('c'+i.id,'bar',{labels:['Resultado','Meta'],datasets:[{data:[i.v,i.meta],backgroundColor:[i.c,'#2ED573']}]},O));
+c.Pr.forEach(i=>chart('c'+i.id,'doughnut',{labels:['Logrado','Pendiente'],datasets:[{data:[Math.min(i.v,100),Math.max(100-i.v,0)],backgroundColor:[i.c,'#D9DEE7']}]},{cutout:'62%',plugins:{legend:{position:'bottom'}}}));
+const y=per.slice(0,4),M=PER.filter(p=>p.startsWith(y)),cc=M.map(calc),L=M.map(p=>p.slice(5));
+chart('t1','bar',{labels:L,datasets:[{data:cc.map(x=>x.R[2].v),backgroundColor:'#7B2FF7'}]},O);
+chart('t2','bar',{labels:L,datasets:[{label:'Laboral (AT)',data:cc.map(x=>x.dl),backgroundColor:'#F77F00'},{label:'Común',data:cc.map(x=>x.dm),backgroundColor:'#2A9D8F'}]},{plugins:{legend:{position:'bottom'}},scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true}}});
+const rows=S.n.map((x,i)=>({x,i})).sort((a,b)=>b.x.f.localeCompare(a.x.f));
+$('#tn').innerHTML='<tr><th>Fecha</th><th>Trabajador</th><th>Cargo</th><th>Área</th><th>Tipo</th><th>Origen</th><th>Días</th><th>Alerta</th><th></th></tr>'+rows.map(({x,i})=>{const w=S.w.find(a=>a.n===x.w)||{c:'—',a:'—'},o=TP[x.t],f=o!=='Personal'&&!(+x.d>0);
+return`<tr class="${f?'f':''}"><td>${x.f}</td><td>${esc(x.w)}</td><td>${esc(w.c)}</td><td>${esc(w.a)}</td><td>${x.t}</td><td><span class="pill" style="background:${o==='Laboral'?'#E63946':o==='Común'?'#2A9D8F':'#6C757D'}">${o}</span></td><td>${x.d||0}</td><td>${f?'⚠ DIGITE LOS DÍAS':o==='Personal'?'ℹ No cuenta en SST':o==='Laboral'?'✔ Reportar a la ARL':'✔ OK'}</td><td><button class="s" onclick="S.n.splice(${i},1);save();render()">✕</button></td></tr>`}).join('');
+$('#fw').innerHTML=S.w.filter(x=>x.act).map(x=>`<option>${esc(x.n)}</option>`).join('');
+$('#tw').innerHTML='<tr><th>Trabajador</th><th>Cargo</th><th>Área</th><th>Estado</th><th></th></tr>'+S.w.map((x,i)=>`<tr><td>${esc(x.n)}</td><td>${esc(x.c)}</td><td>${esc(x.a)}</td><td><button class="s" onclick="S.w[${i}].act^=1;save();render()">${x.act?'Activo':'Retirado'}</button></td><td><button class="s" onclick="S.w.splice(${i},1);save();render()">✕</button></td></tr>`).join('')}
+const PF=[['dh','Días hábiles programados'],['dc','Días cargados'],['ap','Actividades plan programadas'],['ae','Actividades plan ejecutadas'],['cp','Capacitaciones programadas'],['ce','Capacitaciones ejecutadas'],['as','Asistentes última capacitación']];
+function params(){const P=S.p[S.per]||{};$('#pp').innerHTML=PF.map(([k,l])=>`<label>${l}<input type="number" min="0" data-k="${k}" value="${P[k]??''}"></label>`).join('')}
+$('#pp').oninput=e=>{const k=e.target.dataset.k;if(!k)return;(S.p[S.per]=S.p[S.per]||{})[k]=e.target.value===''?'':+e.target.value;save();render()};
+$('#per').onchange=e=>{S.per=e.target.value;save();params();render()};
+function need(){const t=$('#ft').value,o=TP[t],m=$('#msg'),d=$('#fdias');
+if(o==='Personal'){m.textContent='ℹ Origen PERSONAL: no cuenta en el ausentismo de SST.';m.style.color='#0D47A1';d.classList.remove('need')}
+else{m.textContent=`⚠ Origen ${o.toUpperCase()} detectado automáticamente: debe digitar los días de incapacidad.`;m.style.color='#9B1C1C';d.classList.toggle('need',!(+d.value>0))}}
+$('#ft').onchange=need;$('#fdias').oninput=need;
+$('#f').onsubmit=e=>{e.preventDefault();const o=TP[$('#ft').value],d=+$('#fdias').value;if(o!=='Personal'&&!(d>0)){need();$('#fdias').focus();return}
+if(!d){need();return}S.n.push({f:$('#fd').value,w:$('#fw').value,t:$('#ft').value,d});const p=$('#fd').value.slice(0,7);if(PER.includes(p))S.per=p;$('#fdias').value='';save();params();render();need()};
+$('#fx').onsubmit=e=>{e.preventDefault();S.w.push({n:$('#wn').value,c:$('#wc').value,a:$('#wa').value,act:1});e.target.reset();save();render()};
+$('#rs').onclick=()=>{if(confirm('¿Restablecer los datos del caso Ferretería El Sinú?')){S=dflt();save();params();render()}};
+$('#xl').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{const wb=XLSX.read(ev.target.result,{type:'array',cellDates:true}),J=(n,o)=>XLSX.utils.sheet_to_json(wb.Sheets[n],o);
+const w=J('Trabajadores',{range:3}).filter(x=>x['Trabajador']).map(x=>({n:String(x['Trabajador']),c:x['Cargo']||'',a:x['Área']||'',act:x['Estado']==='Retirado'?0:1}));
+const n=J('Bases de novedades',{range:3}).filter(x=>x['Fecha']&&x['Nombre del trabajador']&&x['Tipo de novedad']).map(x=>{const v=x['Fecha'],d=v instanceof Date?new Date(v.getTime()+43200000).toISOString().slice(0,10):String(v).slice(0,10);return{f:d,w:String(x['Nombre del trabajador']),t:x['Tipo de novedad'],d:+x['Días ausentes']||0}}).filter(x=>TP[x.t]);
+const A=J('Indicadores',{header:1}),p={};for(let i=20;i<32;i++){const a=A[i];if(a&&a[1]&&a.slice(2,9).some(v=>v!==undefined&&v!==''))p[a[1]]={dh:a[2],dc:a[3],ap:a[4],ae:a[5],cp:a[6],ce:a[7],as:a[8]}}
+if(w.length)S.w=w;S.n=n;if(Object.keys(p).length){S.p=p;S.per=Object.keys(p)[0]}save();params();render();alert('Excel cargado: '+w.length+' trabajadores, '+n.length+' novedades.')}catch(x){alert('No se pudo leer el Excel. Use el libro Tablero_SST_Ferreteria_El_Sinu.xlsx.')}};r.readAsArrayBuffer(f);e.target.value=''};
+$('#fd').value=new Date().toISOString().slice(0,10);params();render();need();
+</script></body></html>
